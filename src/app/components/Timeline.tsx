@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Game, RAWGResponse } from "../types";
 import GameCard from "./GameCard";
+import ExpandedGame from "./ExpandedGame";
 
 const PLATFORMS = [
   { label: "All", value: "all" },
@@ -17,10 +18,7 @@ function groupByMonth(games: Game[]): Record<string, Game[]> {
   for (const game of games) {
     if (!game.released) continue;
     const d = new Date(game.released + "T00:00:00");
-    const key = d.toLocaleDateString("en-US", {
-      month: "long",
-      year: "numeric",
-    });
+    const key = d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
     if (!groups[key]) groups[key] = [];
     groups[key].push(game);
   }
@@ -40,6 +38,7 @@ export default function Timeline() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
 
   const fetchGames = useCallback(
     async (selectedPlatform: string, pageNum: number, append = false) => {
@@ -47,15 +46,11 @@ export default function Timeline() {
         if (!append) setLoading(true);
         else setLoadingMore(true);
 
-        const res = await fetch(
-          `/api/games?platform=${selectedPlatform}&page=${pageNum}`
-        );
+        const res = await fetch(`/api/games?platform=${selectedPlatform}&page=${pageNum}`);
         if (!res.ok) throw new Error("Failed to fetch");
         const data: RAWGResponse = await res.json();
 
-        setGames((prev) =>
-          append ? [...prev, ...data.results] : data.results
-        );
+        setGames((prev) => append ? [...prev, ...data.results] : data.results);
         setHasMore(!!data.next);
       } catch {
         setError("Could not load games. Please try again.");
@@ -69,6 +64,7 @@ export default function Timeline() {
 
   useEffect(() => {
     setPage(1);
+    setExpandedId(null);
     fetchGames(platform, 1, false);
   }, [platform, fetchGames]);
 
@@ -78,19 +74,16 @@ export default function Timeline() {
     fetchGames(platform, nextPage, true);
   };
 
+  const handleToggle = (id: number) => {
+    setExpandedId((prev) => (prev === id ? null : id));
+  };
+
   const groups = groupByMonth(games);
 
   return (
-    <div style={{ maxWidth: "900px", margin: "0 auto", padding: "32px 24px" }}>
+    <div style={{ maxWidth: "1600px", margin: "0 auto", padding: "32px 40px" }}>
       {/* Platform filter */}
-      <div
-        style={{
-          display: "flex",
-          gap: "8px",
-          marginBottom: "40px",
-          flexWrap: "wrap",
-        }}
-      >
+      <div style={{ display: "flex", gap: "8px", marginBottom: "40px", flexWrap: "wrap" }}>
         {PLATFORMS.map((p) => (
           <button
             key={p.value}
@@ -98,15 +91,9 @@ export default function Timeline() {
             style={{
               padding: "7px 16px",
               borderRadius: "9999px",
-              border: `1px solid ${
-                platform === p.value ? "var(--accent)" : "var(--border)"
-              }`,
-              background:
-                platform === p.value ? "var(--accent-dim)" : "transparent",
-              color:
-                platform === p.value
-                  ? "var(--accent)"
-                  : "var(--text-secondary)",
+              border: `1px solid ${platform === p.value ? "var(--accent)" : "var(--border)"}`,
+              background: platform === p.value ? "var(--accent-dim)" : "transparent",
+              color: platform === p.value ? "var(--accent)" : "var(--text-secondary)",
               fontSize: "13px",
               fontWeight: platform === p.value ? 600 : 400,
               cursor: "pointer",
@@ -119,21 +106,15 @@ export default function Timeline() {
         ))}
       </div>
 
-      {/* Loading */}
+      {/* Loading skeleton */}
       {loading && (
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "12px",
-          }}
-        >
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
           {Array.from({ length: 8 }).map((_, i) => (
             <div
               key={i}
               style={{
-                height: "96px",
-                borderRadius: "10px",
+                height: "162px",
+                borderRadius: "12px",
                 background: "var(--bg-card)",
                 border: "1px solid var(--border)",
                 opacity: 1 - i * 0.1,
@@ -141,36 +122,17 @@ export default function Timeline() {
               }}
             />
           ))}
-          <style>{`
-            @keyframes pulse {
-              0%, 100% { opacity: 0.5; }
-              50% { opacity: 0.8; }
-            }
-          `}</style>
+          <style>{`@keyframes pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 0.8; } }`}</style>
         </div>
       )}
 
       {/* Error */}
       {error && !loading && (
-        <div
-          style={{
-            textAlign: "center",
-            padding: "60px 0",
-            color: "var(--text-muted)",
-          }}
-        >
+        <div style={{ textAlign: "center", padding: "60px 0", color: "var(--text-muted)" }}>
           <p style={{ marginBottom: "12px" }}>{error}</p>
           <button
             onClick={() => fetchGames(platform, 1, false)}
-            style={{
-              padding: "8px 20px",
-              borderRadius: "8px",
-              border: "1px solid var(--border)",
-              background: "transparent",
-              color: "var(--text-secondary)",
-              cursor: "pointer",
-              fontFamily: "inherit",
-            }}
+            style={{ padding: "8px 20px", borderRadius: "8px", border: "1px solid var(--border)", background: "transparent", color: "var(--text-secondary)", cursor: "pointer", fontFamily: "inherit" }}
           >
             Try again
           </button>
@@ -182,63 +144,49 @@ export default function Timeline() {
         <>
           {Object.entries(groups).map(([month, monthGames]) => (
             <section key={month} style={{ marginBottom: "48px" }}>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "16px",
-                  marginBottom: "16px",
-                }}
-              >
-                <h2
-                  style={{
-                    fontSize: "13px",
-                    fontWeight: 700,
-                    letterSpacing: "0.1em",
-                    textTransform: "uppercase",
-                    color: "var(--text-muted)",
-                    whiteSpace: "nowrap",
-                  }}
-                >
+              {/* Month header */}
+              <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "16px" }}>
+                <h2 style={{ fontSize: "13px", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--text-muted)", whiteSpace: "nowrap" }}>
                   {month}
                 </h2>
-                <div
-                  style={{
-                    flex: 1,
-                    height: "1px",
-                    background: "var(--border)",
-                  }}
-                />
-                <span
-                  style={{
-                    fontSize: "12px",
-                    color: "var(--text-muted)",
-                  }}
-                >
+                <div style={{ flex: 1, height: "1px", background: "var(--border)" }} />
+                <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
                   {monthGames.length} release{monthGames.length !== 1 ? "s" : ""}
                 </span>
               </div>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                {monthGames.map((game) => (
-                  <GameCard
-                    key={game.id}
-                    game={game}
-                    isToday={game.released ? isToday(game.released) : false}
-                  />
-                ))}
+              <div style={{ display: "flex", flexDirection: "column", gap: "0" }}>
+                {monthGames.map((game) => {
+                  const isExpanded = expandedId === game.id;
+                  return (
+                    <div
+                      key={game.id}
+                      style={{
+                        marginBottom: "8px",
+                        borderRadius: "12px",
+                        border: `1px solid ${isExpanded ? "rgba(124,106,247,0.4)" : "var(--border)"}`,
+                        overflow: "hidden",
+                        transition: "border-color 0.2s",
+                      }}
+                    >
+                      <GameCard
+                        game={game}
+                        isToday={game.released ? isToday(game.released) : false}
+                        isExpanded={isExpanded}
+                        onClick={() => handleToggle(game.id)}
+                      />
+                      {isExpanded && (
+                        <ExpandedGame gameId={game.id} gameName={game.name} />
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </section>
           ))}
 
           {games.length === 0 && (
-            <div
-              style={{
-                textAlign: "center",
-                padding: "80px 0",
-                color: "var(--text-muted)",
-              }}
-            >
+            <div style={{ textAlign: "center", padding: "80px 0", color: "var(--text-muted)" }}>
               No upcoming releases found for this platform.
             </div>
           )}
@@ -253,9 +201,7 @@ export default function Timeline() {
                   borderRadius: "9999px",
                   border: "1px solid var(--border)",
                   background: "transparent",
-                  color: loadingMore
-                    ? "var(--text-muted)"
-                    : "var(--text-secondary)",
+                  color: loadingMore ? "var(--text-muted)" : "var(--text-secondary)",
                   fontSize: "13px",
                   cursor: loadingMore ? "default" : "pointer",
                   transition: "all 0.15s",
